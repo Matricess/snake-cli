@@ -8,10 +8,114 @@
 #include <map>
 #include <deque>
 #include <algorithm>
+#include <fstream>
 using namespace std;
 using std::chrono::system_clock;
 using namespace std::this_thread;
 char direction='r';
+bool paused=false;
+vector<int> high_scores; // descending order, capped at 10
+
+// Pause helpers (purely for tests and input wiring)
+inline void set_game_paused(bool value){ paused = value; }
+inline void toggle_pause(){ paused = !paused; }
+inline bool is_game_paused(){ return paused; }
+
+// High-score helpers (pure-ish; uses global storage)
+inline void reset_high_scores(){ high_scores.clear(); }
+inline const vector<int>& get_high_scores(){ return high_scores; }
+inline void submit_score(int score){
+    if (score < 0) score = 0;
+    high_scores.push_back(score);
+    sort(high_scores.begin(), high_scores.end(), greater<int>());
+    if ((int)high_scores.size() > 10) high_scores.resize(10);
+}
+
+inline bool save_high_scores(const string &path){
+    ofstream out(path);
+    if (!out.is_open()) return false;
+    for(size_t i=0;i<high_scores.size();i++){
+        out << high_scores[i] << "\n";
+    }
+    return true;
+}
+
+inline bool load_high_scores(const string &path){
+    ifstream in(path);
+    if (!in.is_open()) return false;
+    vector<int> loaded;
+    int val;
+    while(in >> val){
+        loaded.push_back(max(0, val));
+    }
+    sort(loaded.begin(), loaded.end(), greater<int>());
+    if ((int)loaded.size() > 10) loaded.resize(10);
+    high_scores = std::move(loaded);
+    return true;
+}
+
+// Difficulty helpers (pure functions for testing)
+inline int compute_level(int food_eaten){
+    if (food_eaten < 0) return 0;
+    return food_eaten / 10;
+}
+
+inline int compute_delay_ms(int level, int base_delay_ms = 500, int per_level_reduction_ms = 100, int min_delay_ms = 100){
+    if (level < 0) level = 0;
+    int reduced = base_delay_ms - level * per_level_reduction_ms;
+    return max(min_delay_ms, reduced);
+}
+
+// Score helper (pure)
+inline int compute_score(int food_eaten, int points_per_food = 10){
+    if (food_eaten <= 0) return 0;
+    return food_eaten * points_per_food;
+}
+
+
+// Food generation helper: pick a free cell; returns (-1,-1) if none
+inline pair<int,int> generate_food(int size, const deque<pair<int,int>> &snake){
+    vector<pair<int,int>> free_cells;
+    free_cells.reserve(size * size);
+    for (int i = 0; i < size; i++){
+        for (int j = 0; j < size; j++){
+            pair<int,int> cell = make_pair(i,j);
+            if (find(snake.begin(), snake.end(), cell) == snake.end()){
+                free_cells.push_back(cell);
+            }
+        }
+    }
+    if (free_cells.empty()){
+        return make_pair(-1,-1);
+    }
+    int idx = rand() % free_cells.size();
+    return free_cells[idx];
+}
+
+
+// Poison generation helper: pick a free cell not on snake and not on normal food; returns (-1,-1) if none
+inline pair<int,int> generate_poison(int size, const deque<pair<int,int>> &snake, pair<int,int> food){
+    vector<pair<int,int>> free_cells;
+    free_cells.reserve(size * size);
+    for (int i = 0; i < size; i++){
+        for (int j = 0; j < size; j++){
+            pair<int,int> cell = make_pair(i,j);
+            if (cell != food && find(snake.begin(), snake.end(), cell) == snake.end()){
+                free_cells.push_back(cell);
+            }
+        }
+    }
+    if (free_cells.empty()){
+        return make_pair(-1,-1);
+    }
+    int idx = rand() % free_cells.size();
+    return free_cells[idx];
+}
+
+// Collision helper for tests
+inline bool is_poison_collision(pair<int,int> head, pair<int,int> poison){
+    return head == poison;
+}
 
 
 void input_handler(){
@@ -28,6 +132,8 @@ void input_handler(){
         if (keymap.find(input) != keymap.end()) {
             // This now correctly modifies the single, shared 'direction' variable
             direction = keymap[input];
+        }else if (input == 'p' || input == 'P'){
+            toggle_pause();
         }else if (input == 'q'){
             exit(0);
         }
@@ -37,11 +143,13 @@ void input_handler(){
 }
 
 
-void render_game(int size, deque<pair<int, int>> &snake, pair<int, int> food){
+void render_game(int size, deque<pair<int, int>> &snake, pair<int, int> food, pair<int,int> poison){
     for(size_t i=0;i<size;i++){
         for(size_t j=0;j<size;j++){
-            if (i == food.first && j == food.second){
+            if (i == (size_t)food.first && j == (size_t)food.second){
                 cout << "🍎";
+            }else if (i == (size_t)poison.first && j == (size_t)poison.second){
+                cout << "💀";
             }else if (find(snake.begin(), snake.end(), make_pair(int(i), int(j))) != snake.end()) {
                 cout << "🐍";
             }else{
@@ -75,27 +183,67 @@ void game_play(){
     deque<pair<int, int>> snake;
     snake.push_back(make_pair(0,0));
 
-    pair<int, int> food = make_pair(rand() % 10, rand() % 10);
-    for(pair<int, int> head=make_pair(0,1);; head = get_next_head(head, direction)){
+    pair<int, int> food = generate_food(10, snake);
+    pair<int, int> poison = generate_poison(10, snake, food);
+    int food_eaten = 0;
+    pair<int,int> head = make_pair(0,1);
+    while(true){
         // send the cursor to the top
         cout << "\033[H";
+        if (is_game_paused()){
+            render_game(10, snake, food, poison);
+            int level = compute_level(food_eaten);
+            int score = compute_score(food_eaten, 10);
+            cout << "length of snake: " << snake.size() << "  level: " << level << "  score: " << score << "  [PAUSED - press 'p' to resume]" << endl;
+            sleep_for(chrono::milliseconds(100));
+            continue;
+        }
+        pair<int,int> next_head = get_next_head(head, direction);
         // check self collision
-        if (find(snake.begin(), snake.end(), head) != snake.end()) {
+        if (find(snake.begin(), snake.end(), next_head) != snake.end()) {
             system("clear");
+            int level = compute_level(food_eaten);
+            int score = compute_score(food_eaten, 10);
+            submit_score(score);
             cout << "Game Over" << endl;
+            cout << "Final score: " << score << "  level: " << level << endl;
+            cout << "Top 10: ";
+            for(size_t i=0;i<high_scores.size();i++){
+                cout << high_scores[i] << (i+1<high_scores.size()?", ":"\n");
+            }
+            save_high_scores("scores.txt");
             exit(0);
-        }else if (head.first == food.first && head.second == food.second) {
+        }else if (next_head.first == poison.first && next_head.second == poison.second){
+            system("clear");
+            int level = compute_level(food_eaten);
+            int score = compute_score(food_eaten, 10);
+            submit_score(score);
+            cout << "Game Over (poison)" << endl;
+            cout << "Final score: " << score << "  level: " << level << endl;
+            cout << "Top 10: ";
+            for(size_t i=0;i<high_scores.size();i++){
+                cout << high_scores[i] << (i+1<high_scores.size()?", ":"\n");
+            }
+            save_high_scores("scores.txt");
+            exit(0);
+        }else if (next_head.first == food.first && next_head.second == food.second) {
             // grow snake
-            food = make_pair(rand() % 10, rand() % 10);
-            snake.push_back(head);            
+            snake.push_back(next_head);            
+            food_eaten++;
+            food = generate_food(10, snake);
+            poison = generate_poison(10, snake, food);
         }else{
             // move snake
-            snake.push_back(head);
+            snake.push_back(next_head);
             snake.pop_front();
         }
-        render_game(10, snake, food);
-        cout << "length of snake: " << snake.size() << endl;
-    
-        sleep_for(500ms);
+        render_game(10, snake, food, poison);
+        int level = compute_level(food_eaten); // increase level every 10 apples
+        int score = compute_score(food_eaten, 10);
+        cout << "length of snake: " << snake.size() << "  level: " << level << "  score: " << score << endl;
+
+        int current_delay_ms = compute_delay_ms(level, 500, 100, 100);
+        sleep_for(chrono::milliseconds(current_delay_ms));
+        head = next_head;
     }
 }
