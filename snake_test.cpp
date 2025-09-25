@@ -4,25 +4,25 @@
 
 TEST(SnakeBehaviour, NextHeadRight) {
     pair<int, int> current = make_pair(rand() % 10, rand() % 10);
-    EXPECT_EQ(get_next_head(current, 'r'),make_pair(current.first,current.second+1));
+    EXPECT_EQ(get_next_head(current, 'r'),make_pair(current.first,(current.second+1) % 10));
     
 }
 
 
 TEST(SnakeBehaviour, NextHeadLeft) {
   pair<int, int> current = make_pair(rand() % 10, rand() % 10);
-  EXPECT_EQ(get_next_head(current, 'l'),make_pair(current.first,current.second-1));
+  EXPECT_EQ(get_next_head(current, 'l'),make_pair(current.first,current.second==0?9:current.second-1));
   
 }
 
 TEST(SnakeBehaviour, NextHeadUp) {
   pair<int, int> current = make_pair(rand() % 10, rand() % 10);
-  EXPECT_EQ(get_next_head(current, 'u'),make_pair(current.first-1,current.second));
+  EXPECT_EQ(get_next_head(current, 'u'),make_pair(current.first==0?9:current.first-1,current.second));
 }
 
 TEST(SnakeBehaviour, NextHeadDown) {
   pair<int, int> current = make_pair(rand() % 10, rand() % 10);
-  EXPECT_EQ(get_next_head(current, 'd'),make_pair(current.first+1,current.second));
+  EXPECT_EQ(get_next_head(current, 'd'),make_pair((current.first+1)%10,current.second));
   
 }
 
