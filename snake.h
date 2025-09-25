@@ -25,6 +25,12 @@ inline int compute_delay_ms(int level, int base_delay_ms = 500, int per_level_re
     return max(min_delay_ms, reduced);
 }
 
+// Score helper (pure)
+inline int compute_score(int food_eaten, int points_per_food = 10){
+    if (food_eaten <= 0) return 0;
+    return food_eaten * points_per_food;
+}
+
 
 // Food generation helper: pick a free cell; returns (-1,-1) if none
 inline pair<int,int> generate_food(int size, const deque<pair<int,int>> &snake){
@@ -129,7 +135,8 @@ void game_play(){
         }
         render_game(10, snake, food);
         int level = compute_level(food_eaten); // increase level every 10 apples
-        cout << "length of snake: " << snake.size() << "  level: " << level << endl;
+        int score = compute_score(food_eaten, 10);
+        cout << "length of snake: " << snake.size() << "  level: " << level << "  score: " << score << endl;
 
         int current_delay_ms = compute_delay_ms(level, 500, 100, 100);
         sleep_for(chrono::milliseconds(current_delay_ms));

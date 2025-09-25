@@ -38,6 +38,19 @@ TEST(FoodGeneration, NeverOnSnake){
   EXPECT_TRUE(find(snake.begin(), snake.end(), food) == snake.end());
 }
 
+// Score tests
+TEST(Score, DefaultPoints){
+  EXPECT_EQ(compute_score(-1), 0);
+  EXPECT_EQ(compute_score(0), 0);
+  EXPECT_EQ(compute_score(1), 10);
+  EXPECT_EQ(compute_score(5), 50);
+}
+
+TEST(Score, CustomPointsPerFood){
+  EXPECT_EQ(compute_score(3, 7), 21);
+  EXPECT_EQ(compute_score(10, 1), 10);
+}
+
 TEST(FoodGeneration, HandlesNearlyFullBoard){
   int size = 3;
   deque<pair<int,int>> snake;
