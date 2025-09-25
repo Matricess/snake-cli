@@ -52,6 +52,31 @@ inline pair<int,int> generate_food(int size, const deque<pair<int,int>> &snake){
 }
 
 
+// Poison generation helper: pick a free cell not on snake and not on normal food; returns (-1,-1) if none
+inline pair<int,int> generate_poison(int size, const deque<pair<int,int>> &snake, pair<int,int> food){
+    vector<pair<int,int>> free_cells;
+    free_cells.reserve(size * size);
+    for (int i = 0; i < size; i++){
+        for (int j = 0; j < size; j++){
+            pair<int,int> cell = make_pair(i,j);
+            if (cell != food && find(snake.begin(), snake.end(), cell) == snake.end()){
+                free_cells.push_back(cell);
+            }
+        }
+    }
+    if (free_cells.empty()){
+        return make_pair(-1,-1);
+    }
+    int idx = rand() % free_cells.size();
+    return free_cells[idx];
+}
+
+// Collision helper for tests
+inline bool is_poison_collision(pair<int,int> head, pair<int,int> poison){
+    return head == poison;
+}
+
+
 void input_handler(){
     // change terminal settings
     struct termios oldt, newt;
@@ -75,11 +100,13 @@ void input_handler(){
 }
 
 
-void render_game(int size, deque<pair<int, int>> &snake, pair<int, int> food){
+void render_game(int size, deque<pair<int, int>> &snake, pair<int, int> food, pair<int,int> poison){
     for(size_t i=0;i<size;i++){
         for(size_t j=0;j<size;j++){
-            if (i == food.first && j == food.second){
+            if (i == (size_t)food.first && j == (size_t)food.second){
                 cout << "🍎";
+            }else if (i == (size_t)poison.first && j == (size_t)poison.second){
+                cout << "💀";
             }else if (find(snake.begin(), snake.end(), make_pair(int(i), int(j))) != snake.end()) {
                 cout << "🐍";
             }else{
@@ -114,6 +141,7 @@ void game_play(){
     snake.push_back(make_pair(0,0));
 
     pair<int, int> food = generate_food(10, snake);
+    pair<int, int> poison = generate_poison(10, snake, food);
     int food_eaten = 0;
     for(pair<int, int> head=make_pair(0,1);; head = get_next_head(head, direction)){
         // send the cursor to the top
@@ -123,17 +151,22 @@ void game_play(){
             system("clear");
             cout << "Game Over" << endl;
             exit(0);
+        }else if (head.first == poison.first && head.second == poison.second){
+            system("clear");
+            cout << "Game Over (poison)" << endl;
+            exit(0);
         }else if (head.first == food.first && head.second == food.second) {
             // grow snake
             snake.push_back(head);            
             food_eaten++;
             food = generate_food(10, snake);
+            poison = generate_poison(10, snake, food);
         }else{
             // move snake
             snake.push_back(head);
             snake.pop_front();
         }
-        render_game(10, snake, food);
+        render_game(10, snake, food, poison);
         int level = compute_level(food_eaten); // increase level every 10 apples
         int score = compute_score(food_eaten, 10);
         cout << "length of snake: " << snake.size() << "  level: " << level << "  score: " << score << endl;

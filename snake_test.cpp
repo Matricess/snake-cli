@@ -79,6 +79,52 @@ TEST(FoodGeneration, FullBoardReturnsSentinel){
 }
 
 
+// Poison generation tests
+TEST(PoisonGeneration, NeverOnSnakeOrFood){
+  int size = 5;
+  deque<pair<int,int>> snake;
+  snake.push_back(make_pair(0,0));
+  snake.push_back(make_pair(0,1));
+  pair<int,int> food = make_pair(1,1);
+  pair<int,int> poison = generate_poison(size, snake, food);
+  EXPECT_TRUE(find(snake.begin(), snake.end(), poison) == snake.end());
+  EXPECT_TRUE(poison != food);
+}
+
+TEST(PoisonGeneration, HandlesNearlyFullBoard){
+  int size = 2;
+  deque<pair<int,int>> snake;
+  // Occupy 3 cells, leave (1,1) free, food at (0,0) so poison must be (1,1)
+  snake.push_back(make_pair(0,1));
+  snake.push_back(make_pair(1,0));
+  snake.push_back(make_pair(0,0));
+  pair<int,int> food = make_pair(0,0);
+  pair<int,int> poison = generate_poison(size, snake, food);
+  EXPECT_EQ(poison, make_pair(1,1));
+}
+
+TEST(PoisonGeneration, FullBoardReturnsSentinel){
+  int size = 2;
+  deque<pair<int,int>> snake;
+  // All cells filled by snake; no poison position
+  for(int i=0;i<size;i++){
+    for(int j=0;j<size;j++){
+      snake.push_back(make_pair(i,j));
+    }
+  }
+  pair<int,int> food = make_pair(0,0);
+  pair<int,int> poison = generate_poison(size, snake, food);
+  EXPECT_EQ(poison, make_pair(-1,-1));
+}
+
+TEST(PoisonCollision, DetectsCollision){
+  pair<int,int> head = make_pair(2,3);
+  pair<int,int> poison = make_pair(2,3);
+  EXPECT_TRUE(is_poison_collision(head, poison));
+  EXPECT_FALSE(is_poison_collision(head, make_pair(0,0)));
+}
+
+
 // New tests for difficulty helpers
 TEST(Difficulty, ComputeLevelThresholds){
   EXPECT_EQ(compute_level(-1), 0);
