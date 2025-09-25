@@ -26,6 +26,26 @@ inline int compute_delay_ms(int level, int base_delay_ms = 500, int per_level_re
 }
 
 
+// Food generation helper: pick a free cell; returns (-1,-1) if none
+inline pair<int,int> generate_food(int size, const deque<pair<int,int>> &snake){
+    vector<pair<int,int>> free_cells;
+    free_cells.reserve(size * size);
+    for (int i = 0; i < size; i++){
+        for (int j = 0; j < size; j++){
+            pair<int,int> cell = make_pair(i,j);
+            if (find(snake.begin(), snake.end(), cell) == snake.end()){
+                free_cells.push_back(cell);
+            }
+        }
+    }
+    if (free_cells.empty()){
+        return make_pair(-1,-1);
+    }
+    int idx = rand() % free_cells.size();
+    return free_cells[idx];
+}
+
+
 void input_handler(){
     // change terminal settings
     struct termios oldt, newt;
@@ -87,7 +107,7 @@ void game_play(){
     deque<pair<int, int>> snake;
     snake.push_back(make_pair(0,0));
 
-    pair<int, int> food = make_pair(rand() % 10, rand() % 10);
+    pair<int, int> food = generate_food(10, snake);
     int food_eaten = 0;
     for(pair<int, int> head=make_pair(0,1);; head = get_next_head(head, direction)){
         // send the cursor to the top
@@ -99,9 +119,9 @@ void game_play(){
             exit(0);
         }else if (head.first == food.first && head.second == food.second) {
             // grow snake
-            food = make_pair(rand() % 10, rand() % 10);
             snake.push_back(head);            
             food_eaten++;
+            food = generate_food(10, snake);
         }else{
             // move snake
             snake.push_back(head);

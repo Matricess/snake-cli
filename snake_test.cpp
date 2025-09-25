@@ -26,6 +26,45 @@ TEST(SnakeBehaviour, NextHeadDown) {
   
 }
 
+// Food generation tests
+TEST(FoodGeneration, NeverOnSnake){
+  deque<pair<int,int>> snake;
+  // occupy some cells
+  snake.push_back(make_pair(0,0));
+  snake.push_back(make_pair(0,1));
+  snake.push_back(make_pair(1,0));
+  snake.push_back(make_pair(1,1));
+  pair<int,int> food = generate_food(10, snake);
+  EXPECT_TRUE(find(snake.begin(), snake.end(), food) == snake.end());
+}
+
+TEST(FoodGeneration, HandlesNearlyFullBoard){
+  int size = 3;
+  deque<pair<int,int>> snake;
+  // Fill all but one cell
+  for(int i=0;i<size;i++){
+    for(int j=0;j<size;j++){
+      if (!(i==size-1 && j==size-1)){
+        snake.push_back(make_pair(i,j));
+      }
+    }
+  }
+  pair<int,int> food = generate_food(size, snake);
+  EXPECT_EQ(food, make_pair(size-1, size-1));
+}
+
+TEST(FoodGeneration, FullBoardReturnsSentinel){
+  int size = 2;
+  deque<pair<int,int>> snake;
+  for(int i=0;i<size;i++){
+    for(int j=0;j<size;j++){
+      snake.push_back(make_pair(i,j));
+    }
+  }
+  pair<int,int> food = generate_food(size, snake);
+  EXPECT_EQ(food, make_pair(-1,-1));
+}
+
 
 // New tests for difficulty helpers
 TEST(Difficulty, ComputeLevelThresholds){
