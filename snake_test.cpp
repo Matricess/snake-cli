@@ -27,6 +27,31 @@ TEST(SnakeBehaviour, NextHeadDown) {
 }
 
 
+// New tests for difficulty helpers
+TEST(Difficulty, ComputeLevelThresholds){
+  EXPECT_EQ(compute_level(-1), 0);
+  EXPECT_EQ(compute_level(0), 0);
+  EXPECT_EQ(compute_level(9), 0);
+  EXPECT_EQ(compute_level(10), 1);
+  EXPECT_EQ(compute_level(19), 1);
+  EXPECT_EQ(compute_level(20), 2);
+}
+
+TEST(Difficulty, ComputeDelayReductionAndMinCap){
+  // Defaults: base=500, reduce=100, min=100
+  EXPECT_EQ(compute_delay_ms(0), 500);
+  EXPECT_EQ(compute_delay_ms(1), 400);
+  EXPECT_EQ(compute_delay_ms(2), 300);
+  EXPECT_EQ(compute_delay_ms(3), 200);
+  EXPECT_EQ(compute_delay_ms(4), 100); // hits min
+  EXPECT_EQ(compute_delay_ms(5), 100); // stays at min
+
+  // Custom parameters
+  EXPECT_EQ(compute_delay_ms(3, 600, 50, 200), 450);
+  EXPECT_EQ(compute_delay_ms(10, 600, 50, 200), 200); // min cap
+}
+
+
 /** 
  * g++ -o my_tests snake_test.cpp -lgtest -lgtest_main -pthread;
  * This command is a two-part shell command. Let's break it down.

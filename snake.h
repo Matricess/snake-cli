@@ -13,6 +13,18 @@ using std::chrono::system_clock;
 using namespace std::this_thread;
 char direction='r';
 
+// Difficulty helpers (pure functions for testing)
+inline int compute_level(int food_eaten){
+    if (food_eaten < 0) return 0;
+    return food_eaten / 10;
+}
+
+inline int compute_delay_ms(int level, int base_delay_ms = 500, int per_level_reduction_ms = 100, int min_delay_ms = 100){
+    if (level < 0) level = 0;
+    int reduced = base_delay_ms - level * per_level_reduction_ms;
+    return max(min_delay_ms, reduced);
+}
+
 
 void input_handler(){
     // change terminal settings
@@ -76,6 +88,7 @@ void game_play(){
     snake.push_back(make_pair(0,0));
 
     pair<int, int> food = make_pair(rand() % 10, rand() % 10);
+    int food_eaten = 0;
     for(pair<int, int> head=make_pair(0,1);; head = get_next_head(head, direction)){
         // send the cursor to the top
         cout << "\033[H";
@@ -88,14 +101,17 @@ void game_play(){
             // grow snake
             food = make_pair(rand() % 10, rand() % 10);
             snake.push_back(head);            
+            food_eaten++;
         }else{
             // move snake
             snake.push_back(head);
             snake.pop_front();
         }
         render_game(10, snake, food);
-        cout << "length of snake: " << snake.size() << endl;
-    
-        sleep_for(500ms);
+        int level = compute_level(food_eaten); // increase level every 10 apples
+        cout << "length of snake: " << snake.size() << "  level: " << level << endl;
+
+        int current_delay_ms = compute_delay_ms(level, 500, 100, 100);
+        sleep_for(chrono::milliseconds(current_delay_ms));
     }
 }
