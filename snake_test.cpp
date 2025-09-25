@@ -150,6 +150,20 @@ TEST(Difficulty, ComputeDelayReductionAndMinCap){
 }
 
 
+// Pause tests
+TEST(Pause, ToggleAndState){
+  // Ensure we can set and toggle pause deterministically
+  set_game_paused(false);
+  EXPECT_FALSE(is_game_paused());
+  toggle_pause();
+  EXPECT_TRUE(is_game_paused());
+  toggle_pause();
+  EXPECT_FALSE(is_game_paused());
+  set_game_paused(true);
+  EXPECT_TRUE(is_game_paused());
+}
+
+
 /** 
  * g++ -o my_tests snake_test.cpp -lgtest -lgtest_main -pthread;
  * This command is a two-part shell command. Let's break it down.

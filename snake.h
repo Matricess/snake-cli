@@ -12,6 +12,12 @@ using namespace std;
 using std::chrono::system_clock;
 using namespace std::this_thread;
 char direction='r';
+bool paused=false;
+
+// Pause helpers (purely for tests and input wiring)
+inline void set_game_paused(bool value){ paused = value; }
+inline void toggle_pause(){ paused = !paused; }
+inline bool is_game_paused(){ return paused; }
 
 // Difficulty helpers (pure functions for testing)
 inline int compute_level(int food_eaten){
@@ -91,6 +97,8 @@ void input_handler(){
         if (keymap.find(input) != keymap.end()) {
             // This now correctly modifies the single, shared 'direction' variable
             direction = keymap[input];
+        }else if (input == 'p' || input == 'P'){
+            toggle_pause();
         }else if (input == 'q'){
             exit(0);
         }
@@ -143,27 +151,37 @@ void game_play(){
     pair<int, int> food = generate_food(10, snake);
     pair<int, int> poison = generate_poison(10, snake, food);
     int food_eaten = 0;
-    for(pair<int, int> head=make_pair(0,1);; head = get_next_head(head, direction)){
+    pair<int,int> head = make_pair(0,1);
+    while(true){
         // send the cursor to the top
         cout << "\033[H";
+        if (is_game_paused()){
+            render_game(10, snake, food, poison);
+            int level = compute_level(food_eaten);
+            int score = compute_score(food_eaten, 10);
+            cout << "length of snake: " << snake.size() << "  level: " << level << "  score: " << score << "  [PAUSED - press 'p' to resume]" << endl;
+            sleep_for(chrono::milliseconds(100));
+            continue;
+        }
+        pair<int,int> next_head = get_next_head(head, direction);
         // check self collision
-        if (find(snake.begin(), snake.end(), head) != snake.end()) {
+        if (find(snake.begin(), snake.end(), next_head) != snake.end()) {
             system("clear");
             cout << "Game Over" << endl;
             exit(0);
-        }else if (head.first == poison.first && head.second == poison.second){
+        }else if (next_head.first == poison.first && next_head.second == poison.second){
             system("clear");
             cout << "Game Over (poison)" << endl;
             exit(0);
-        }else if (head.first == food.first && head.second == food.second) {
+        }else if (next_head.first == food.first && next_head.second == food.second) {
             // grow snake
-            snake.push_back(head);            
+            snake.push_back(next_head);            
             food_eaten++;
             food = generate_food(10, snake);
             poison = generate_poison(10, snake, food);
         }else{
             // move snake
-            snake.push_back(head);
+            snake.push_back(next_head);
             snake.pop_front();
         }
         render_game(10, snake, food, poison);
@@ -173,5 +191,6 @@ void game_play(){
 
         int current_delay_ms = compute_delay_ms(level, 500, 100, 100);
         sleep_for(chrono::milliseconds(current_delay_ms));
+        head = next_head;
     }
 }
