@@ -8,16 +8,51 @@
 #include <map>
 #include <deque>
 #include <algorithm>
+#include <fstream>
 using namespace std;
 using std::chrono::system_clock;
 using namespace std::this_thread;
 char direction='r';
 bool paused=false;
+vector<int> high_scores; // descending order, capped at 10
 
 // Pause helpers (purely for tests and input wiring)
 inline void set_game_paused(bool value){ paused = value; }
 inline void toggle_pause(){ paused = !paused; }
 inline bool is_game_paused(){ return paused; }
+
+// High-score helpers (pure-ish; uses global storage)
+inline void reset_high_scores(){ high_scores.clear(); }
+inline const vector<int>& get_high_scores(){ return high_scores; }
+inline void submit_score(int score){
+    if (score < 0) score = 0;
+    high_scores.push_back(score);
+    sort(high_scores.begin(), high_scores.end(), greater<int>());
+    if ((int)high_scores.size() > 10) high_scores.resize(10);
+}
+
+inline bool save_high_scores(const string &path){
+    ofstream out(path);
+    if (!out.is_open()) return false;
+    for(size_t i=0;i<high_scores.size();i++){
+        out << high_scores[i] << "\n";
+    }
+    return true;
+}
+
+inline bool load_high_scores(const string &path){
+    ifstream in(path);
+    if (!in.is_open()) return false;
+    vector<int> loaded;
+    int val;
+    while(in >> val){
+        loaded.push_back(max(0, val));
+    }
+    sort(loaded.begin(), loaded.end(), greater<int>());
+    if ((int)loaded.size() > 10) loaded.resize(10);
+    high_scores = std::move(loaded);
+    return true;
+}
 
 // Difficulty helpers (pure functions for testing)
 inline int compute_level(int food_eaten){
@@ -167,11 +202,29 @@ void game_play(){
         // check self collision
         if (find(snake.begin(), snake.end(), next_head) != snake.end()) {
             system("clear");
+            int level = compute_level(food_eaten);
+            int score = compute_score(food_eaten, 10);
+            submit_score(score);
             cout << "Game Over" << endl;
+            cout << "Final score: " << score << "  level: " << level << endl;
+            cout << "Top 10: ";
+            for(size_t i=0;i<high_scores.size();i++){
+                cout << high_scores[i] << (i+1<high_scores.size()?", ":"\n");
+            }
+            save_high_scores("scores.txt");
             exit(0);
         }else if (next_head.first == poison.first && next_head.second == poison.second){
             system("clear");
+            int level = compute_level(food_eaten);
+            int score = compute_score(food_eaten, 10);
+            submit_score(score);
             cout << "Game Over (poison)" << endl;
+            cout << "Final score: " << score << "  level: " << level << endl;
+            cout << "Top 10: ";
+            for(size_t i=0;i<high_scores.size();i++){
+                cout << high_scores[i] << (i+1<high_scores.size()?", ":"\n");
+            }
+            save_high_scores("scores.txt");
             exit(0);
         }else if (next_head.first == food.first && next_head.second == food.second) {
             // grow snake

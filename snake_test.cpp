@@ -163,6 +163,59 @@ TEST(Pause, ToggleAndState){
   EXPECT_TRUE(is_game_paused());
 }
 
+// High score tests
+TEST(HighScores, InsertOrderAndTrim){
+  reset_high_scores();
+  // Insert 12 scores in mixed order
+  int vals[12] = {10, 50, 30, 70, 20, 90, 60, 80, 100, 40, 5, 55};
+  for(int v: vals) submit_score(v);
+  const vector<int>& hs = get_high_scores();
+  ASSERT_EQ(hs.size(), 10u);
+  // Should be sorted descending and only top 10 kept
+  EXPECT_EQ(hs[0], 100);
+  EXPECT_EQ(hs[1], 90);
+  EXPECT_EQ(hs[2], 80);
+  EXPECT_EQ(hs[3], 70);
+  EXPECT_EQ(hs[4], 60);
+  EXPECT_EQ(hs[5], 55);
+  EXPECT_EQ(hs[6], 50);
+  EXPECT_EQ(hs[7], 40);
+  EXPECT_EQ(hs[8], 30);
+  EXPECT_EQ(hs[9], 20);
+}
+
+TEST(HighScores, NonNegativeScores){
+  reset_high_scores();
+  submit_score(-10);
+  const vector<int>& hs = get_high_scores();
+  ASSERT_EQ(hs.size(), 1u);
+  EXPECT_EQ(hs[0], 0);
+}
+
+TEST(HighScores, SaveAndLoadRoundTrip){
+  reset_high_scores();
+  submit_score(30);
+  submit_score(20);
+  submit_score(40);
+  // Save
+  EXPECT_TRUE(save_high_scores("test_scores.txt"));
+  // Clear and load
+  reset_high_scores();
+  EXPECT_TRUE(load_high_scores("test_scores.txt"));
+  const vector<int>& hs = get_high_scores();
+  ASSERT_EQ(hs.size(), 3u);
+  EXPECT_EQ(hs[0], 40);
+  EXPECT_EQ(hs[1], 30);
+  EXPECT_EQ(hs[2], 20);
+}
+
+TEST(HighScores, LoadMissingFileFailsGracefully){
+  reset_high_scores();
+  // Loading a non-existent file should return false and leave scores unchanged
+  EXPECT_FALSE(load_high_scores("does_not_exist.txt"));
+  EXPECT_TRUE(get_high_scores().empty());
+}
+
 
 /** 
  * g++ -o my_tests snake_test.cpp -lgtest -lgtest_main -pthread;

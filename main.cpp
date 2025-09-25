@@ -1,6 +1,8 @@
 #include "snake.h"
 
 int main(int argc, char *argv[]) {
+    // best-effort load of persisted scores
+    load_high_scores("scores.txt");
     thread input_thread(input_handler);
     thread game_thread(game_play);   
     input_thread.join();
